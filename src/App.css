@@ -1,0 +1,1359 @@
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  font-family:
+    "Yu Gothic UI", "Meiryo", system-ui, -apple-system, BlinkMacSystemFont,
+    sans-serif;
+  color: #17202a;
+  background: #eef2f6;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: #eef2f6;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.app-shell {
+  min-height: 100vh;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 18px 28px;
+  color: white;
+  background: #173f67;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.app-header p {
+  margin: 5px 0 0;
+  color: #d7e6f5;
+}
+
+.header-summary {
+  display: flex;
+  align-items: baseline;
+  white-space: nowrap;
+}
+
+.header-summary strong {
+  font-size: 38px;
+}
+
+.header-summary span {
+  font-size: 20px;
+}
+
+.tab-navigation {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  background: white;
+  border-bottom: 1px solid #cbd5df;
+  box-shadow: 0 2px 8px rgba(24, 52, 79, 0.08);
+}
+
+.tab-navigation button {
+  padding: 17px 12px;
+  border: 0;
+  border-bottom: 4px solid transparent;
+  color: #4d5d6c;
+  background: white;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.tab-navigation button.active {
+  color: #0c65ad;
+  border-bottom-color: #0c65ad;
+  background: #f2f8fd;
+}
+
+.main-content {
+  width: min(1500px, 100%);
+  margin: 0 auto;
+  padding: 22px;
+}
+
+.progress-panel {
+  display: grid;
+  grid-template-columns: minmax(320px, 1.3fr) minmax(440px, 1fr);
+  gap: 22px;
+  margin-bottom: 22px;
+  padding: 22px;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 5px 18px rgba(28, 52, 74, 0.09);
+}
+
+.progress-main {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.progress-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.progress-title span {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.progress-title strong {
+  color: #087a44;
+  font-size: 34px;
+}
+
+.progress-track {
+  width: 100%;
+  height: 25px;
+  overflow: hidden;
+  background: #dfe7ec;
+  border-radius: 999px;
+}
+
+.progress-bar {
+  height: 100%;
+  background: #15965a;
+  border-radius: inherit;
+  transition: width 0.25s ease;
+}
+
+.progress-box-count {
+  margin-top: 10px;
+  font-size: 20px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(110px, 1fr));
+  gap: 10px;
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 82px;
+  padding: 12px;
+  background: #f3f6f8;
+  border-radius: 10px;
+  text-align: center;
+}
+
+.summary-item span {
+  color: #5c6975;
+  font-size: 14px;
+}
+
+.summary-item strong {
+  margin-top: 5px;
+  font-size: 21px;
+}
+
+.page-section {
+  padding: 25px;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 5px 18px rgba(28, 52, 74, 0.09);
+}
+
+.section-title-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  margin-bottom: 22px;
+}
+
+.section-title-row h2 {
+  margin: 0;
+  font-size: 27px;
+}
+
+.section-title-row p {
+  margin: 7px 0 0;
+  color: #657381;
+}
+
+.import-card {
+  display: grid;
+  grid-template-columns: auto minmax(220px, 1fr);
+  gap: 18px;
+  align-items: center;
+  padding: 25px;
+  border: 2px dashed #a9bdcf;
+  border-radius: 14px;
+  background: #f8fbfd;
+}
+
+.file-select-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 58px;
+  padding: 0 26px;
+  color: white;
+  background: #0d70bd;
+  border-radius: 10px;
+  font-size: 19px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.file-select-button:hover {
+  background: #095b9b;
+}
+
+.file-select-button input {
+  display: none;
+}
+
+.file-information {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  overflow-wrap: anywhere;
+}
+
+.file-information span {
+  color: #687681;
+}
+
+.file-information strong {
+  font-size: 18px;
+}
+
+.message {
+  grid-column: 1 / -1;
+  padding: 14px 16px;
+  border-radius: 9px;
+  font-weight: 700;
+}
+
+.success-message {
+  color: #11633d;
+  background: #e0f5e9;
+  border: 1px solid #9cd6b6;
+}
+
+.error-message {
+  color: #9a2020;
+  background: #fdeaea;
+  border: 1px solid #edb5b5;
+}
+
+.information-card {
+  margin-top: 22px;
+  padding: 20px;
+  background: #f5f7f9;
+  border-radius: 12px;
+}
+
+.information-card h3 {
+  margin: 0 0 14px;
+}
+
+.column-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.column-grid span {
+  padding: 8px 12px;
+  background: white;
+  border: 1px solid #d0d8df;
+  border-radius: 999px;
+}
+
+.button-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.secondary-button,
+.danger-button {
+  min-height: 48px;
+  padding: 0 20px;
+  border-radius: 9px;
+  font-weight: 700;
+}
+
+.secondary-button {
+  color: #164b73;
+  background: #e4f0fa;
+  border: 1px solid #a8c9e3;
+}
+
+.danger-button {
+  color: white;
+  background: #b53535;
+  border: 1px solid #b53535;
+}
+
+.picking-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+}
+
+.picking-toolbar label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+}
+
+.picking-toolbar select,
+.list-controls select,
+.list-controls input {
+  min-height: 48px;
+  padding: 0 13px;
+  border: 1px solid #b8c4ce;
+  border-radius: 9px;
+  background: white;
+  font-size: 17px;
+}
+
+.picking-card {
+  position: relative;
+  overflow: hidden;
+  border: 2px solid #b8cbdc;
+  border-radius: 17px;
+}
+
+.picking-position {
+  padding: 12px 18px;
+  color: white;
+  background: #345d7f;
+  font-size: 19px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.hold-banner {
+  padding: 12px;
+  color: #6c4700;
+  background: #ffe5a4;
+  font-size: 20px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.primary-information {
+  display: grid;
+  grid-template-columns: minmax(170px, 0.6fr) minmax(340px, 1.6fr);
+  gap: 16px;
+  padding: 22px;
+  background: #edf5fb;
+}
+
+.lane-box,
+.part-number-box {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 130px;
+  padding: 15px;
+  background: white;
+  border: 2px solid #7ca7ca;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.lane-box span,
+.part-number-box span,
+.quantity-grid span,
+.detail-item span {
+  color: #536370;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.lane-box strong {
+  color: #b44b00;
+  font-size: clamp(44px, 7vw, 78px);
+  line-height: 1.1;
+}
+
+.part-number-box strong {
+  color: #053e70;
+  font-size: clamp(37px, 5.5vw, 68px);
+  line-height: 1.12;
+  overflow-wrap: anywhere;
+}
+
+.quantity-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  padding: 0 22px 22px;
+  background: #edf5fb;
+}
+
+.quantity-grid > div {
+  padding: 18px;
+  background: white;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.quantity-grid strong {
+  display: block;
+  margin-top: 3px;
+  color: #17202a;
+  font-size: clamp(42px, 6vw, 68px);
+}
+
+.quantity-grid strong small {
+  margin-left: 8px;
+  font-size: 24px;
+}
+
+.quantity-grid p {
+  margin: 5px 0 0;
+  color: #5d6974;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1px;
+  background: #d4dde4;
+  border-top: 1px solid #d4dde4;
+}
+
+.detail-item {
+  min-height: 92px;
+  padding: 15px 19px;
+  background: white;
+}
+
+.detail-item strong {
+  display: block;
+  margin-top: 7px;
+  font-size: 21px;
+  overflow-wrap: anywhere;
+}
+
+.detail-wide {
+  grid-column: 1 / -1;
+}
+
+.detail-wide strong {
+  font-size: 24px;
+}
+
+.picking-actions {
+  display: grid;
+  grid-template-columns: 0.6fr 0.8fr 1.5fr 0.6fr;
+  gap: 12px;
+  padding: 20px;
+  background: #f5f7f9;
+}
+
+.picking-actions button {
+  min-height: 70px;
+  border-radius: 11px;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.navigation-button {
+  color: #35424d;
+  background: white;
+  border: 2px solid #aebbc6;
+}
+
+.hold-button {
+  color: #5b3d00;
+  background: #ffd87c;
+  border: 2px solid #e3ac2b;
+}
+
+.complete-button {
+  color: white;
+  background: #13864e;
+  border: 2px solid #13864e;
+  font-size: 24px !important;
+}
+
+.empty-card {
+  padding: 70px 25px;
+  border: 2px dashed #bcc8d1;
+  border-radius: 15px;
+  text-align: center;
+}
+
+.empty-card h2 {
+  margin: 0;
+}
+
+.empty-card p {
+  color: #62717d;
+}
+
+.list-controls {
+  display: grid;
+  grid-template-columns: minmax(250px, 1fr) 180px 180px;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+  border: 1px solid #cbd4dc;
+  border-radius: 10px;
+}
+
+table {
+  width: 100%;
+  min-width: 1150px;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 13px 11px;
+  border-bottom: 1px solid #d5dde4;
+  text-align: left;
+  vertical-align: middle;
+}
+
+th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  color: white;
+  background: #3b566e;
+  white-space: nowrap;
+}
+
+tbody tr:hover {
+  background: #f1f7fb;
+}
+
+tr.status-completed {
+  background: #eaf6ee;
+}
+
+tr.status-hold {
+  background: #fff7df;
+}
+
+.large-table-text {
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.status-badge {
+  display: inline-block;
+  min-width: 68px;
+  padding: 6px 9px;
+  border-radius: 999px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.status-badge.status-pending {
+  color: #38444f;
+  background: #e4e8eb;
+}
+
+.status-badge.status-completed {
+  color: #0d693b;
+  background: #ccebd9;
+}
+
+.status-badge.status-hold {
+  color: #745000;
+  background: #ffe5a5;
+}
+
+.small-button,
+.small-complete-button {
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: 7px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.small-button {
+  color: #35444f;
+  background: white;
+  border: 1px solid #aeb9c2;
+}
+
+.small-complete-button {
+  color: white;
+  background: #16854f;
+  border: 1px solid #16854f;
+}
+
+.empty-table-cell {
+  padding: 50px;
+  color: #667580;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .main-content {
+    padding: 12px;
+  }
+
+  .app-header {
+    padding: 14px 18px;
+  }
+
+  .app-header h1 {
+    font-size: 22px;
+  }
+
+  .app-header p {
+    display: none;
+  }
+
+  .header-summary strong {
+    font-size: 28px;
+  }
+
+  .header-summary span {
+    font-size: 16px;
+  }
+
+  .progress-panel {
+    grid-template-columns: 1fr;
+    padding: 15px;
+  }
+
+  .summary-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .page-section {
+    padding: 15px;
+  }
+
+  .primary-information {
+    grid-template-columns: 0.7fr 1.5fr;
+    padding: 14px;
+  }
+
+  .quantity-grid {
+    padding: 0 14px 14px;
+  }
+
+  .picking-actions {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .complete-button {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .list-controls {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .list-controls input {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 600px) {
+  .app-header {
+    align-items: flex-start;
+  }
+
+  .app-header h1 {
+    font-size: 19px;
+  }
+
+  .tab-navigation button {
+    padding: 14px 6px;
+    font-size: 15px;
+  }
+
+  .summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .import-card {
+    grid-template-columns: 1fr;
+  }
+
+  .file-select-button {
+    width: 100%;
+  }
+
+  .primary-information {
+    grid-template-columns: 1fr;
+  }
+
+  .quantity-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .quantity-grid strong {
+    font-size: 38px;
+  }
+
+  .quantity-grid p {
+    font-size: 14px;
+  }
+
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-wide {
+    grid-column: auto;
+  }
+
+  .picking-actions {
+    grid-template-columns: 1fr 1fr;
+    padding: 12px;
+  }
+
+  .button-row {
+    flex-direction: column;
+  }
+}
+/* ===== タブレット向けピッキング画面最適化 ===== */
+
+@media (min-width: 700px) {
+  .progress-panel {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 18px;
+    margin-bottom: 14px;
+  }
+
+  .progress-main {
+    min-width: 0;
+  }
+
+  .progress-title {
+    margin-bottom: 6px;
+  }
+
+  .progress-title span {
+    font-size: 17px;
+  }
+
+  .progress-title strong {
+    font-size: 28px;
+  }
+
+  .progress-track {
+    height: 18px;
+  }
+
+  .progress-box-count {
+    margin-top: 6px;
+    font-size: 17px;
+  }
+
+  .summary-grid {
+    grid-template-columns: repeat(3, 120px);
+    gap: 8px;
+  }
+
+  .summary-item {
+    min-height: 64px;
+    padding: 8px;
+  }
+
+  .summary-item span {
+    font-size: 13px;
+  }
+
+  .summary-item strong {
+    font-size: 18px;
+  }
+
+  .picking-toolbar {
+    margin-bottom: 10px;
+  }
+
+  .picking-card {
+    margin-bottom: 95px;
+  }
+
+  .primary-information {
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .lane-box,
+  .part-number-box {
+    min-height: 105px;
+    padding: 10px;
+  }
+
+  .lane-box strong {
+    font-size: clamp(42px, 6vw, 68px);
+  }
+
+  .part-number-box strong {
+    font-size: clamp(40px, 5.5vw, 64px);
+  }
+
+  .quantity-grid {
+    padding: 0 14px 14px;
+    gap: 12px;
+  }
+
+  .quantity-grid > div {
+    padding: 12px;
+  }
+
+  .quantity-grid strong {
+    font-size: clamp(38px, 5vw, 58px);
+  }
+
+  .quantity-grid strong small {
+    font-size: 21px;
+  }
+
+  .quantity-grid p {
+    font-size: 15px;
+  }
+
+  .detail-item {
+    min-height: 72px;
+    padding: 10px 15px;
+  }
+
+  .detail-item strong {
+    margin-top: 4px;
+    font-size: 18px;
+  }
+
+  .detail-wide strong {
+    font-size: 20px;
+  }
+
+  .picking-actions {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    grid-template-columns: 0.7fr 0.9fr 1.8fr 0.7fr;
+    gap: 10px;
+    padding: 10px 18px;
+    background: rgba(245, 247, 249, 0.98);
+    border-top: 2px solid #b6c3cd;
+    box-shadow: 0 -4px 14px rgba(28, 52, 74, 0.15);
+  }
+
+  .picking-actions button {
+    min-height: 64px;
+  }
+
+  .complete-button {
+    font-size: 22px !important;
+  }
+}
+/* 4タブを横1列に固定 */
+.tab-navigation {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.tab-navigation button {
+  min-width: 0;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .tab-navigation button {
+    padding: 14px 4px;
+    font-size: 14px;
+  }
+}
+/* ===== 作業中進捗 ===== */
+
+.work-progress-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.work-progress-summary > div {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 78px;
+  padding: 10px 14px;
+  background: #f0f6fa;
+  border: 1px solid #b6ccdc;
+  border-radius: 10px;
+  text-align: center;
+}
+
+.work-progress-summary span {
+  color: #536574;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.work-progress-summary strong {
+  margin-top: 5px;
+  color: #0a4d7f;
+  font-size: 21px;
+}
+
+@media (max-width: 800px) {
+  .work-progress-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ===== 選択中の作業条件 ===== */
+
+.active-work-condition {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 12px;
+  background: #fff8df;
+  border: 2px solid #e3c76d;
+  border-radius: 12px;
+}
+
+.active-work-condition > div {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 66px;
+  padding: 8px 14px;
+  background: white;
+  border-radius: 9px;
+  text-align: center;
+}
+
+.active-work-condition span {
+  color: #6a5a27;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.active-work-condition strong {
+  margin-top: 4px;
+  color: #5a3c00;
+  font-size: 23px;
+}
+
+@media (max-width: 700px) {
+  .active-work-condition {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .active-work-condition > div:first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ===== ピッキング作業情報を横1列に集約 ===== */
+
+.compact-work-summary {
+  display: grid;
+  grid-template-columns: 1.35fr repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.compact-work-summary > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 82px;
+  padding: 10px 12px;
+  background: #f0f6fa;
+  border: 1px solid #b6ccdc;
+  border-radius: 10px;
+  text-align: center;
+}
+
+.compact-work-summary .work-date-summary {
+  background: #fff8df;
+  border: 2px solid #e3c76d;
+}
+
+.compact-work-summary span {
+  color: #536574;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.compact-work-summary strong {
+  margin-top: 5px;
+  color: #0a4d7f;
+  font-size: 21px;
+  white-space: nowrap;
+}
+
+.compact-work-summary .work-date-summary span {
+  color: #6a5a27;
+}
+
+.compact-work-summary .work-date-summary strong {
+  color: #5a3c00;
+  font-size: 24px;
+}
+
+@media (max-width: 900px) {
+  .compact-work-summary {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .compact-work-summary .work-date-summary {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 600px) {
+  .compact-work-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .compact-work-summary .work-date-summary {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ===== 作業一覧 出荷日切替 ===== */
+
+.date-display-toggle {
+  min-height: 48px;
+  padding: 0 18px;
+  color: #174d75;
+  background: #e5f1fa;
+  border: 1px solid #9fc3df;
+  border-radius: 9px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.date-display-toggle:hover {
+  background: #d5e9f7;
+}
+
+@media (max-width: 700px) {
+  .section-title-row {
+    flex-direction: column;
+  }
+
+  .date-display-toggle {
+    width: 100%;
+  }
+}
+
+/* ===== 作業一覧 保留件数ボタン ===== */
+
+.list-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hold-count-button {
+  min-height: 48px;
+  padding: 0 18px;
+  color: #6b4a00;
+  background: #fff2c7;
+  border: 1px solid #dfb84e;
+  border-radius: 9px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.hold-count-button:hover {
+  background: #ffe9a2;
+}
+
+.hold-count-button.active {
+  color: white;
+  background: #c28a00;
+  border-color: #c28a00;
+}
+
+@media (max-width: 700px) {
+  .list-header-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .hold-count-button,
+  .date-display-toggle {
+    width: 100%;
+
+  }/* ===== 保留行の操作ボタン ===== */
+
+.hold-action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hold-action-buttons .small-complete-button,
+.hold-action-buttons .small-button {
+  min-height: 40px;
+  padding: 0 12px;
+}
+
+@media (max-width: 900px) {
+  .hold-action-buttons {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+}
+
+/* ===== 作業一覧 Excel出力 ===== */
+
+.excel-export-button {
+  min-height: 48px;
+  padding: 0 20px;
+  color: white;
+  background: #187446;
+  border: 1px solid #187446;
+  border-radius: 9px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.excel-export-button:hover {
+  background: #105f38;
+}
+
+@media (max-width: 700px) {
+  .excel-export-button {
+    width: 100%;
+  }
+}
+
+/* ===== バックアップ・復元 ===== */
+
+.backup-button-row {
+  align-items: stretch;
+}
+
+.backup-export-button,
+.backup-import-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 20px;
+  border-radius: 9px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.backup-export-button {
+  color: white;
+  background: #345f8a;
+  border: 1px solid #345f8a;
+}
+
+.backup-export-button:hover {
+  background: #294e72;
+}
+
+.backup-import-button {
+  color: #214f75;
+  background: #e5f1fa;
+  border: 1px solid #9fc3df;
+  cursor: pointer;
+}
+
+.backup-import-button:hover {
+  background: #d4e9f7;
+}
+
+.backup-import-button input {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .backup-button-row {
+    flex-direction: column;
+  }
+
+  .backup-export-button,
+  .backup-import-button,
+  .danger-button {
+    width: 100%;
+  }
+}
+
+/* ===== ピッキング箱数内訳 ===== */
+
+.box-breakdown {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.full-box-display,
+.partial-box-display {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 58px;
+  padding: 10px 16px;
+  border: 2px solid #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.full-box-display span,
+.partial-box-display span {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.full-box-display strong,
+.partial-box-display strong {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.partial-box-display.has-partial {
+  border: 3px solid #f59e0b;
+  background: #fff7df;
+}
+
+.partial-box-display.has-partial span,
+.partial-box-display.has-partial strong {
+  color: #b45309;
+}
+
+@media (max-width: 700px) {
+  .box-breakdown {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ===== 入数・端数数量表示 ===== */
+
+.capacity-breakdown {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.capacity-breakdown > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 52px;
+  padding: 10px 16px;
+  border: 2px solid #cbd5e1;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.capacity-breakdown span {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.capacity-breakdown strong {
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.partial-quantity-row {
+  border-color: #f59e0b !important;
+  background: #fff7df !important;
+}
+
+.partial-quantity-row span,
+.partial-quantity-row strong {
+  color: #b45309;
+}
+
+/* ===== 作業一覧 箱数内訳 ===== */
+
+.list-box-count {
+  display: grid;
+  gap: 4px;
+  min-width: 105px;
+}
+
+.list-box-count strong {
+  font-size: 17px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.list-box-count span {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.list-partial-box.has-partial {
+  display: inline-block;
+  width: fit-content;
+  padding: 3px 7px;
+  border: 2px solid #f59e0b;
+  border-radius: 6px;
+  background: #fff7df;
+  color: #b45309;
+}
