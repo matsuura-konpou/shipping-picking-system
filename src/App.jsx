@@ -8,6 +8,24 @@ import {
 import "./App.css";
 
 const STORAGE_KEY = "shipping-picking-data-v1";
+const SORT_SETTINGS_KEY = "shipping-picking-sort-settings-v1";
+
+const DEFAULT_SORT_RULES = [
+  { field: "boxType", direction: "custom" },
+  { field: "totalBoxes", direction: "desc" },
+  { field: "lane", direction: "asc" },
+];
+
+const SORT_FIELD_OPTIONS = [
+  { value: "boxType", label: "箱種" },
+  { value: "totalBoxes", label: "箱数" },
+  { value: "lane", label: "ロケ" },
+  { value: "destinationName", label: "納入先" },
+  { value: "partNumber", label: "品番" },
+  { value: "deliveryDate", label: "納期" },
+  { value: "orderNumber", label: "注文No." },
+  { value: "importOrder", label: "取込順" },
+];
 
 const STATUS = {
   PENDING: "未作業",
@@ -24,7 +42,34 @@ function App() {
 
   const [statusFilter, setStatusFilter] = useState("すべて");
   const [searchText, setSearchText] = useState("");
-  const [sortType, setSortType] = useState("ロケ順");
+  const [listBoxJudgement, setListBoxJudgement] = useState("全部");
+  const [sortRules, setSortRules] = useState(() => {
+    try {
+      const saved = JSON.parse(
+        localStorage.getItem(SORT_SETTINGS_KEY) || "{}"
+      );
+
+      return Array.isArray(saved.sortRules) && saved.sortRules.length === 3
+        ? saved.sortRules
+        : DEFAULT_SORT_RULES;
+    } catch {
+      return DEFAULT_SORT_RULES;
+    }
+  });
+
+  const [boxTypeOrder, setBoxTypeOrder] = useState(() => {
+    try {
+      const saved = JSON.parse(
+        localStorage.getItem(SORT_SETTINGS_KEY) || "{}"
+      );
+
+      return Array.isArray(saved.boxTypeOrder)
+        ? saved.boxTypeOrder
+        : [];
+    } catch {
+      return [];
+    }
+  });
   const [showAllDatesInList, setShowAllDatesInList] = useState(false);
 
   const [importMessage, setImportMessage] = useState("");
@@ -34,6 +79,8 @@ function App() {
   const [workDeliveryDate, setWorkDeliveryDate] = useState("すべて");
   const [workDestination, setWorkDestination] = useState("すべて");
   const [workLane, setWorkLane] = useState("すべて");
+  const [workBoxType, setWorkBoxType] = useState("すべて");
+  const [workBoxJudgement, setWorkBoxJudgement] = useState("全部");
   const [workStatus, setWorkStatus] = useState("未作業・保留");
   const [workStarted, setWorkStarted] = useState(false);
   const [workTargetIds, setWorkTargetIds] = useState([]);
@@ -97,58 +144,58 @@ function App() {
     };
   }, [shippingData, isDataLoaded]);
 
+  useEffect(() => {
+    const detectedBoxTypes = createUniqueOptions(
+      shippingData.map((item) => item.boxType)
+    );
+
+    setBoxTypeOrder((previousOrder) => {
+      const kept = previousOrder.filter((value) =>
+        detectedBoxTypes.includes(value)
+      );
+
+      const added = detectedBoxTypes.filter(
+        (value) => !kept.includes(value)
+      );
+
+      const nextOrder = [...kept, ...added];
+
+      return JSON.stringify(nextOrder) === JSON.stringify(previousOrder)
+        ? previousOrder
+        : nextOrder;
+    });
+  }, [shippingData]);
+
+  useEffect(() => {
+    localStorage.setItem(
+      SORT_SETTINGS_KEY,
+      JSON.stringify({
+        sortRules,
+        boxTypeOrder,
+      })
+    );
+  }, [sortRules, boxTypeOrder]);
+
   const sortedData = useMemo(() => {
     const copiedData = [...shippingData];
 
-    switch (sortType) {
-      case "ロケ順":
-        return copiedData.sort((a, b) =>
-          String(a.lane).localeCompare(String(b.lane), "ja", {
-            numeric: true,
-          })
+    return copiedData.sort((a, b) => {
+      for (const rule of sortRules) {
+        const result = compareBySortRule(
+          a,
+          b,
+          rule,
+          boxTypeOrder
         );
 
-      case "納入先順":
-        return copiedData.sort((a, b) =>
-          String(a.destinationName).localeCompare(
-            String(b.destinationName),
-            "ja"
-          )
-        );
+        if (result !== 0) {
+          return result;
+        }
+      }
 
-      case "品番順":
-        return copiedData.sort((a, b) =>
-          String(a.partNumber).localeCompare(String(b.partNumber), "ja", {
-            numeric: true,
-          })
-        );
-
-      case "納期順":
-        return copiedData.sort((a, b) =>
-          String(a.deliveryDate).localeCompare(String(b.deliveryDate))
-        );
-
-      case "箱数少ない順":
-        return copiedData.sort(
-          (a, b) => toNumber(a.totalBoxes) - toNumber(b.totalBoxes)
-        );
-
-      case "箱数多い順":
-        return copiedData.sort(
-          (a, b) => toNumber(b.totalBoxes) - toNumber(a.totalBoxes)
-        );
-
-      case "注文No.順":
-        return copiedData.sort((a, b) =>
-          String(a.orderNumber).localeCompare(String(b.orderNumber), "ja", {
-            numeric: true,
-          })
-        );
-
-      default:
-        return copiedData.sort((a, b) => a.importOrder - b.importOrder);
-    }
-  }, [shippingData, sortType]);
+      return toNumber(a.importOrder) - toNumber(b.importOrder);
+    });
+  }, [shippingData, sortRules, boxTypeOrder]);
 
   const filteredData = useMemo(() => {
     const normalizedSearch = normalizeText(searchText);
@@ -169,6 +216,7 @@ function App() {
           item.destinationCode,
           item.destinationName,
           item.lane,
+          item.boxType,
           item.inspectionNumber,
           item.shippingDate,
           item.deliveryDate,
@@ -178,12 +226,28 @@ function App() {
       const matchesSearch =
         normalizedSearch === "" || targetText.includes(normalizedSearch);
 
-      return matchesShippingDate && matchesStatus && matchesSearch;
+      let matchesBoxJudgement = true;
+
+      if (listBoxJudgement === "端数のみ") {
+        matchesBoxJudgement = toNumber(item.partialBoxes) > 0;
+      } else if (listBoxJudgement === "整数のみ") {
+        matchesBoxJudgement =
+          toNumber(item.fullBoxes) > 0 &&
+          toNumber(item.partialBoxes) === 0;
+      }
+
+      return (
+        matchesShippingDate &&
+        matchesStatus &&
+        matchesSearch &&
+        matchesBoxJudgement
+      );
     });
   }, [
     sortedData,
     statusFilter,
     searchText,
+    listBoxJudgement,
     workShippingDate,
     showAllDatesInList,
   ]);
@@ -219,6 +283,8 @@ function App() {
       setWorkDeliveryDate("すべて");
       setWorkDestination("すべて");
       setWorkLane("すべて");
+      setWorkBoxType("すべて");
+      setWorkBoxJudgement("全部");
     }
   }, [shippingDateOptions, workShippingDate]);
 
@@ -277,6 +343,39 @@ function App() {
     workDestination,
   ]);
 
+  const boxTypeOptions = useMemo(() => {
+    const filtered = shippingData.filter((item) => {
+      const matchesShippingDate =
+        !workShippingDate || item.shippingDate === workShippingDate;
+
+      const matchesDeliveryDate =
+        workDeliveryDate === "すべて" ||
+        item.deliveryDate === workDeliveryDate;
+
+      const matchesDestination =
+        workDestination === "すべて" ||
+        item.destinationName === workDestination;
+
+      const matchesLane =
+        workLane === "すべて" || item.lane === workLane;
+
+      return (
+        matchesShippingDate &&
+        matchesDeliveryDate &&
+        matchesDestination &&
+        matchesLane
+      );
+    });
+
+    return createUniqueOptions(filtered.map((item) => item.boxType));
+  }, [
+    shippingData,
+    workShippingDate,
+    workDeliveryDate,
+    workDestination,
+    workLane,
+  ]);
+
   const selectedWorkData = useMemo(() => {
     return sortedData.filter((item) => {
       const matchesShippingDate =
@@ -294,6 +393,19 @@ function App() {
       const matchesLane =
         workLane === "すべて" || item.lane === workLane;
 
+      const matchesBoxType =
+        workBoxType === "すべて" || item.boxType === workBoxType;
+
+      let matchesBoxJudgement = true;
+
+      if (workBoxJudgement === "端数のみ") {
+        matchesBoxJudgement = toNumber(item.partialBoxes) > 0;
+      } else if (workBoxJudgement === "整数のみ") {
+        matchesBoxJudgement =
+          toNumber(item.fullBoxes) > 0 &&
+          toNumber(item.partialBoxes) === 0;
+      }
+
       let matchesStatus = true;
 
       if (workStatus === "未作業・保留") {
@@ -309,6 +421,8 @@ function App() {
         matchesDeliveryDate &&
         matchesDestination &&
         matchesLane &&
+        matchesBoxType &&
+        matchesBoxJudgement &&
         matchesStatus
       );
     });
@@ -318,6 +432,8 @@ function App() {
     workDeliveryDate,
     workDestination,
     workLane,
+    workBoxType,
+    workBoxJudgement,
     workStatus,
   ]);
 
@@ -379,6 +495,61 @@ function App() {
     workTotalBoxes > 0
       ? Math.round((workCompletedBoxes / workTotalBoxes) * 1000) / 10
       : 0;
+
+  const updateSortRule = (index, key, value) => {
+    setSortRules((previousRules) =>
+      previousRules.map((rule, ruleIndex) => {
+        if (ruleIndex !== index) {
+          return rule;
+        }
+
+        if (key === "field") {
+          return {
+            field: value,
+            direction: value === "boxType" ? "custom" : "asc",
+          };
+        }
+
+        return {
+          ...rule,
+          [key]: value,
+        };
+      })
+    );
+
+    setCurrentIndex(0);
+  };
+
+  const updateBoxTypeOrder = (index, selectedBoxType) => {
+    setBoxTypeOrder((previousOrder) => {
+      const copiedOrder = [...previousOrder];
+      const selectedIndex = copiedOrder.indexOf(selectedBoxType);
+
+      if (selectedIndex === -1 || selectedIndex === index) {
+        return previousOrder;
+      }
+
+      // 同じ箱種が二重にならないよう、選択した箱種と現在位置を入れ替える
+      [copiedOrder[index], copiedOrder[selectedIndex]] = [
+        copiedOrder[selectedIndex],
+        copiedOrder[index],
+      ];
+
+      return copiedOrder;
+    });
+
+    setCurrentIndex(0);
+  };
+
+  const resetSortSettings = () => {
+    setSortRules(DEFAULT_SORT_RULES);
+    setBoxTypeOrder(
+      createUniqueOptions(
+        shippingData.map((item) => item.boxType)
+      )
+    );
+    setCurrentIndex(0);
+  };
 
   const handleFileChange = async (event) => {
     const file = event.target.files?.[0];
@@ -685,6 +856,8 @@ function App() {
     setWorkDeliveryDate("すべて");
     setWorkDestination("すべて");
     setWorkLane("すべて");
+    setWorkBoxType("すべて");
+    setWorkBoxJudgement("全部");
     setWorkStatus("未作業・保留");
   };
 
@@ -1024,8 +1197,9 @@ function App() {
                 <span>納入場所名</span>
                 <span>納期</span>
                 <span>レーン</span>
-                <span>箱整数【出荷時】</span>
-                <span>箱端数【出荷時】</span>
+                <span>収容数【荷主側】</span>
+                <span>収容数【出荷時】</span>
+                <span>箱種</span>
               </div>
             </div>
 
@@ -1066,7 +1240,7 @@ function App() {
               <div>
                 <h2>作業対象選択</h2>
                 <p>
-                  ピッキングする出荷日・納期・納入先・ロケを選択してください。
+                  ピッキングする出荷日・納期・納入先・ロケ・箱種を選択してください。
                 </p>
               </div>
             </div>
@@ -1090,6 +1264,7 @@ function App() {
                         setWorkDeliveryDate("すべて");
                         setWorkDestination("すべて");
                         setWorkLane("すべて");
+                        setWorkBoxType("すべて");
                       }}
                     >
                       {shippingDateOptions.map((value) => (
@@ -1108,6 +1283,7 @@ function App() {
                         setWorkDeliveryDate(event.target.value);
                         setWorkDestination("すべて");
                         setWorkLane("すべて");
+                        setWorkBoxType("すべて");
                       }}
                     >
                       <option>すべて</option>
@@ -1127,6 +1303,7 @@ function App() {
                       onChange={(event) => {
                         setWorkDestination(event.target.value);
                         setWorkLane("すべて");
+                        setWorkBoxType("すべて");
                       }}
                     >
                       <option>すべて</option>
@@ -1143,9 +1320,10 @@ function App() {
                     <span>ロケ</span>
                     <select
                       value={workLane}
-                      onChange={(event) =>
-                        setWorkLane(event.target.value)
-                      }
+                      onChange={(event) => {
+                        setWorkLane(event.target.value);
+                        setWorkBoxType("すべて");
+                      }}
                     >
                       <option>すべて</option>
 
@@ -1154,6 +1332,38 @@ function App() {
                           {value}
                         </option>
                       ))}
+                    </select>
+                  </label>
+
+                  <label>
+                    <span>箱種</span>
+                    <select
+                      value={workBoxType}
+                      onChange={(event) =>
+                        setWorkBoxType(event.target.value)
+                      }
+                    >
+                      <option>すべて</option>
+
+                      {boxTypeOptions.map((value) => (
+                        <option key={value} value={value}>
+                          {value}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label>
+                    <span>箱区分</span>
+                    <select
+                      value={workBoxJudgement}
+                      onChange={(event) =>
+                        setWorkBoxJudgement(event.target.value)
+                      }
+                    >
+                      <option value="全部">全部</option>
+                      <option value="端数のみ">端数のみ</option>
+                      <option value="整数のみ">整数のみ</option>
                     </select>
                   </label>
 
@@ -1206,6 +1416,8 @@ function App() {
                     <span>納期：{workDeliveryDate}</span>
                     <span>納入先：{workDestination}</span>
                     <span>ロケ：{workLane}</span>
+                    <span>箱種：{workBoxType}</span>
+                    <span>箱区分：{workBoxJudgement}</span>
                     <span>状態：{workStatus}</span>
                   </div>
                 </div>
@@ -1280,27 +1492,15 @@ function App() {
               >
                 作業条件を変更
               </button>
-
-              <label>
-                並び順
-                <select
-                  value={sortType}
-                  onChange={(event) => {
-                    setSortType(event.target.value);
-                    setCurrentIndex(0);
-                  }}
-                >
-                  <option>取込順</option>
-                  <option>ロケ順</option>
-                  <option>納入先順</option>
-                  <option>品番順</option>
-                  <option>納期順</option>
-                  <option>箱数少ない順</option>
-                  <option>箱数多い順</option>
-                  <option>注文No.順</option>
-                </select>
-              </label>
             </div>
+
+            <SortSettings
+              sortRules={sortRules}
+              boxTypeOrder={boxTypeOrder}
+              onUpdateRule={updateSortRule}
+              onChangeBoxTypeOrder={updateBoxTypeOrder}
+              onReset={resetSortSettings}
+            />
 
             {!workStarted ? (
               <div className="empty-card">
@@ -1350,6 +1550,7 @@ function App() {
                   <div className="lane-box">
                     <span>ロケ</span>
                     <strong>{currentItem.lane || "未設定"}</strong>
+                    <small>箱種：{currentItem.boxType || "未設定"}</small>
                   </div>
 
                   <div className="part-number-box">
@@ -1361,111 +1562,113 @@ function App() {
                 </div>
 
                 <div className="quantity-grid">
-　　　　　　　　　  <div>
-   　　　　　　　　　 <span>箱数</span>
+                  <div>
+                    <span>箱数</span>
 
-  　　　　　　　　　  <strong>
-    　　　　　　　　　  {toNumber(
-      　　　　　　　　　  currentItem.totalBoxes
-   　　　　　　　　　   ).toLocaleString()}
-  　　　　　　　　　    <small>箱</small>
-   　　　　　　　　　 </strong>
+                    <strong>
+                      {toNumber(
+                        currentItem.totalBoxes
+                      ).toLocaleString()}
+                      <small>箱</small>
+                    </strong>
 
-  　　　　　　　　　  <div className="box-breakdown">
-　　　　　　　　　      <div className="full-box-display">
-　　　　　　　　　        <span>整数箱</span>
+                    <div className="box-breakdown">
+                      <div className="full-box-display">
+                        <span>整数箱</span>
+                        <strong>
+                          {toNumber(
+                            currentItem.fullBoxes
+                          ).toLocaleString()}
+                          箱
+                        </strong>
+                      </div>
 
-   　　　　　　　　　     <strong>
-   　　　　　　　　　       {toNumber(
-   　　　　　　　　　         currentItem.fullBoxes
-   　　　　　　　　　       ).toLocaleString()}
-   　　　　　　　　　       箱
-    　　　　　　　　　    </strong>
-   　　　　　　　　　   </div>
+                      <div
+                        className={
+                          toNumber(currentItem.partialBoxes) > 0
+                            ? "partial-box-display has-partial"
+                            : "partial-box-display"
+                        }
+                      >
+                        <span>端数箱</span>
+                        <strong>
+                          {toNumber(
+                            currentItem.partialBoxes
+                          ).toLocaleString()}
+                          箱
+                        </strong>
+                      </div>
+                    </div>
 
-  　　　　　　　　　    <div
-   　　　　　　　　　     className={
-    　　　　　　　　　      toNumber(currentItem.partialBoxes) > 0
-    　　　　　　　　　        ? "partial-box-display has-partial"
-   　　　　　　　　　         : "partial-box-display"
-   　　　　　　　　　     }
-  　　　　　　　　　    >
-  　　　　　　　　　      <span>端数箱</span>
+                    <div className="capacity-breakdown">
+                      {toNumber(currentItem.fullBoxes) > 0 && (
+                        <div>
+                          <span>整数</span>
+                          <strong>
+                            {toNumber(
+                              currentItem.capacity
+                            ).toLocaleString()}
+                            個 ×{" "}
+                            {toNumber(
+                              currentItem.fullBoxes
+                            ).toLocaleString()}
+                            箱
+                          </strong>
+                        </div>
+                      )}
 
-   　　　　　　　　　     <strong>
-   　　　　　　　　　       {toNumber(
-    　　　　　　　　　        currentItem.partialBoxes
-   　　　　　　　　　       ).toLocaleString()}
-   　　　　　　　　　       箱
-   　　　　　　　　　     </strong>
-  　　　　　　　　　    </div>
- 　　　　　　　　　   </div>
+                      {toNumber(currentItem.partialBoxes) > 0 && (
+                        <div className="partial-quantity-row">
+                          <span>端数</span>
+                          <strong>
+                            {getPartialQuantityPerBox(
+                              currentItem
+                            ).toLocaleString()}
+                            個 ×{" "}
+                            {toNumber(
+                              currentItem.partialBoxes
+                            ).toLocaleString()}
+                            箱
+                          </strong>
+                        </div>
+                      )}
+                    </div>
+                  </div>
 
- 　　　　　　　　　   <div className="capacity-breakdown">
- 　　　　　　　　　     <div>
-  　　　　　　　　　      <span>整数</span>
-　　　　　　　　　
-   　　　　　　　　　     <strong>
-   　　　　　　　　　       {toNumber(
-   　　　　　　　　　         currentItem.capacity
-   　　　　　　　　　       ).toLocaleString()}
-     　　　　　　　　　     個 ×{" "}
-   　　　　　　　　　       {toNumber(
-    　　　　　　　　　        currentItem.fullBoxes
-     　　　　　　　　　     ).toLocaleString()}
-     　　　　　　　　　     箱
-     　　　　　　　　　   </strong>
-   　　　　　　　　　   </div>
+                  <div>
+                    <span>数量</span>
 
-  　　　　　　　　　    {toNumber(currentItem.partialBoxes) > 0 && (
-   　　　　　　　　　     <div className="partial-quantity-row">
-       　　　　　　　　　   <span>端数</span>
+                    <strong>
+                      {toNumber(
+                        currentItem.quantity
+                      ).toLocaleString()}
+                      <small>個</small>
+                    </strong>
 
-       　　　　　　　　　   <strong>
-       　　　　　　　　　     {Math.max(
-      　　　　　　　　　        Math.floor(
-      　　　　　　　　　          (
-       　　　　　　　　　           toNumber(currentItem.quantity) -
-       　　　　　　　　　           toNumber(currentItem.capacity) *
-        　　　　　　　　　            toNumber(currentItem.fullBoxes)
-         　　　　　　　　　       ) /
-          　　　　　　　　　        Math.max(
-           　　　　　　　　　         toNumber(currentItem.partialBoxes),
-           　　　　　　　　　         1
-           　　　　　　　　　       )
-          　　　　　　　　　    ),
-         　　　　　　　　　     0
-       　　　　　　　　　     ).toLocaleString()}
-     　　　　　　　　　       個 ×{" "}
-      　　　　　　　　　      {toNumber(
-     　　　　　　　　　         currentItem.partialBoxes
-     　　　　　　　　　       ).toLocaleString()}
-     　　　　　　　　　       箱
-     　　　　　　　　　     </strong>
-     　　　　　　　　　   </div>
-   　　　　　　　　　   )}
-　　　　　　　　　    </div>
-　　　　　　　　　  </div>
+                    <p>
+                      荷主収容数{" "}
+                      {toNumber(
+                        currentItem.ownerCapacity
+                      ).toLocaleString()}
+                      個／箱
+                    </p>
 
- 　　　　　　　　　 <div>
- 　　　　　　　　　   <span>数量</span>
+                    <p>
+                      出荷時収容数{" "}
+                      {toNumber(
+                        currentItem.capacity
+                      ).toLocaleString()}
+                      個／箱
+                    </p>
 
-   　　　　　　　　　 <strong>
- 　　　　　　　　　     {toNumber(
- 　　　　　　　　　       currentItem.quantity
-  　　　　　　　　　    ).toLocaleString()}
-  　　　　　　　　　    <small>個</small>
- 　　　　　　　　　   </strong>
-
- 　　　　　　　　　   <p>
- 　　　　　　　　　     合計数量{" "}
-  　　　　　　　　　    {toNumber(
- 　　　　　　　　　       currentItem.quantity
-   　　　　　　　　　   ).toLocaleString()}
-  　　　　　　　　　    個
-　　　　　　　　　    </p>
-　　　　　　　　　  </div>
-　　　　　　　　　</div>
+                    <p>
+                      判定{" "}
+                      <strong>
+                        {currentItem.boxJudgement || "従来判定"}
+                      </strong>
+                    </p>
+                  </div>
+                </div>
 
                 <div className="detail-grid">
                   <DetailItem
@@ -1497,6 +1700,11 @@ function App() {
                   <DetailItem
                     label="検収番号"
                     value={currentItem.inspectionNumber}
+                  />
+
+                  <DetailItem
+                    label="箱種"
+                    value={currentItem.boxType}
                   />
                 </div>
 
@@ -1603,7 +1811,7 @@ function App() {
                 onChange={(event) =>
                   setSearchText(event.target.value)
                 }
-                placeholder="品番・注文No.・納入先・ロケで検索"
+                placeholder="品番・注文No.・納入先・ロケ・箱種で検索"
               />
 
               <select
@@ -1619,21 +1827,26 @@ function App() {
               </select>
 
               <select
-                value={sortType}
+                value={listBoxJudgement}
                 onChange={(event) =>
-                  setSortType(event.target.value)
+                  setListBoxJudgement(event.target.value)
                 }
+                aria-label="箱区分"
               >
-                <option>取込順</option>
-                <option>ロケ順</option>
-                <option>納入先順</option>
-                <option>品番順</option>
-                <option>納期順</option>
-                <option>箱数少ない順</option>
-                <option>箱数多い順</option>
-                <option>注文No.順</option>
+                <option value="全部">全部</option>
+                <option value="端数のみ">端数のみ</option>
+                <option value="整数のみ">整数のみ</option>
               </select>
+
             </div>
+
+            <SortSettings
+              sortRules={sortRules}
+              boxTypeOrder={boxTypeOrder}
+              onUpdateRule={updateSortRule}
+              onChangeBoxTypeOrder={updateBoxTypeOrder}
+              onReset={resetSortSettings}
+            />
 
             <div className="table-wrapper">
               <table>
@@ -1641,6 +1854,7 @@ function App() {
                   <tr>
                     <th>状態</th>
                     <th>ロケ</th>
+                    <th>箱種</th>
                     <th>品番</th>
                     <th>箱数</th>
                     <th>数量</th>
@@ -1676,43 +1890,47 @@ function App() {
                         {item.lane || "-"}
                       </td>
 
+                      <td>
+                        {item.boxType || "-"}
+                      </td>
+
                       <td className="large-table-text">
                         {item.partNumber}
                       </td>
 
                       <td>
-  　　　　　　　　　　　　<div className="list-box-count">
-   　　　　　　　　　　　　 <strong>
-  　　　　　　　　　　　　    合計{" "}
-    　　　　　　　　　　　　  {toNumber(
-     　　　　　　　　　　　　   item.totalBoxes
-     　　　　　　　　　　　　 ).toLocaleString()}
- 　　　　　　　　　　　　     箱
-   　　　　　　　　　　　　 </strong>
+                        <div className="list-box-count">
+                          <strong>
+                            合計{" "}
+                            {toNumber(
+                              item.totalBoxes
+                            ).toLocaleString()}
+                            箱
+                          </strong>
 
-  　　　　　　　　　　　　  <span>
-   　　　　　　　　　　　　   整数{" "}
-   　　　　　　　　　　　　   {toNumber(
-   　　　　　　　　　　　　     item.fullBoxes
-    　　　　　　　　　　　　  ).toLocaleString()}
-   　　　　　　　　　　　　   箱
-   　　　　　　　　　　　　 </span>
+                          <span>
+                            整数{" "}
+                            {toNumber(
+                              item.fullBoxes
+                            ).toLocaleString()}
+                            箱
+                          </span>
 
-   　　　　　　　　　　　　 <span
-      　　　　　　　　　　　　className={
-     　　　　　　　　　　　　   toNumber(item.partialBoxes) > 0
-        　　　　　　　　　　　　  ? "list-partial-box has-partial"
-         　　　　　　　　　　　　 : "list-partial-box"
-   　　　　　　　　　　　　   }
-   　　　　　　　　　　　　 >
-   　　　　　　　　　　　　   端数{" "}
-    　　　　　　　　　　　　  {toNumber(
-      　　　　　　　　　　　　  item.partialBoxes
-   　　　　　　　　　　　　   ).toLocaleString()}
-    　　　　　　　　　　　　  箱
-  　　　　　　　　　　　　  </span>
- 　　　　　　　　　　　　 </div>
-　　　　　　　　　　　　</td>
+                          <span
+                            className={
+                              toNumber(item.partialBoxes) > 0
+                                ? "list-partial-box has-partial"
+                                : "list-partial-box"
+                            }
+                          >
+                            端数{" "}
+                            {toNumber(
+                              item.partialBoxes
+                            ).toLocaleString()}
+                            箱
+                          </span>
+                        </div>
+                      </td>
 
                       <td>
                         {toNumber(item.quantity).toLocaleString()}
@@ -1815,7 +2033,7 @@ function App() {
                   {filteredData.length === 0 && (
                     <tr>
                       <td
-                        colSpan="12"
+                        colSpan="13"
                         className="empty-table-cell"
                       >
                         該当するデータがありません。
@@ -1829,6 +2047,131 @@ function App() {
         )}
       </main>
     </div>
+  );
+}
+
+function SortSettings({
+  sortRules,
+  boxTypeOrder,
+  onUpdateRule,
+  onChangeBoxTypeOrder,
+  onReset,
+}) {
+  return (
+    <details className="sort-settings-panel">
+      <summary>並び順設定</summary>
+
+      <div className="sort-rule-list">
+        {sortRules.map((rule, index) => (
+          <div
+            className="sort-rule-row"
+            key={`${index}-${rule.field}`}
+          >
+            <strong>第{index + 1}優先</strong>
+
+            <select
+              value={rule.field}
+              onChange={(event) =>
+                onUpdateRule(index, "field", event.target.value)
+              }
+            >
+              {SORT_FIELD_OPTIONS.map((option) => (
+                <option
+                  key={option.value}
+                  value={option.value}
+                >
+                  {option.label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={rule.direction}
+              onChange={(event) =>
+                onUpdateRule(
+                  index,
+                  "direction",
+                  event.target.value
+                )
+              }
+            >
+              {rule.field === "boxType" && (
+                <option value="custom">指定順</option>
+              )}
+
+              {rule.field === "totalBoxes" ? (
+                <>
+                  <option value="desc">多い順</option>
+                  <option value="asc">少ない順</option>
+                </>
+              ) : rule.field === "importOrder" ? (
+                <>
+                  <option value="asc">取込順</option>
+                  <option value="desc">逆順</option>
+                </>
+              ) : (
+                <>
+                  <option value="asc">昇順</option>
+                  <option value="desc">降順</option>
+                </>
+              )}
+            </select>
+          </div>
+        ))}
+      </div>
+
+      {sortRules.some(
+        (rule) =>
+          rule.field === "boxType" &&
+          rule.direction === "custom"
+      ) && (
+        <div className="box-type-order-panel">
+          <h4>箱種の指定順</h4>
+
+          {boxTypeOrder.length === 0 ? (
+            <p>箱種データがありません。</p>
+          ) : (
+            <div className="box-type-order-list">
+              {boxTypeOrder.map((boxType, index) => (
+                <label
+                  className="box-type-order-row"
+                  key={`box-type-rank-${index}`}
+                >
+                  <strong>{index + 1}番目</strong>
+
+                  <select
+                    value={boxType}
+                    onChange={(event) =>
+                      onChangeBoxTypeOrder(
+                        index,
+                        event.target.value
+                      )
+                    }
+                  >
+                    {boxTypeOrder.map((option) => (
+                      <option
+                        key={option}
+                        value={option}
+                      >
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <button
+        type="button"
+        className="secondary-button sort-reset-button"
+        onClick={onReset}
+      >
+        並び順を初期設定に戻す
+      </button>
+    </details>
   );
 }
 
@@ -1873,8 +2216,34 @@ function convertRowToShippingData(row, headers, rowIndex) {
     return null;
   }
 
-  const fullBoxes = toNumber(getValue("箱整数【出荷時】"));
-  const partialBoxes = toNumber(getValue("箱端数【出荷時】"));
+  const ownerCapacity = toNumber(getValue("収容数【荷主側】"));
+  const shippingCapacity = toNumber(getValue("収容数【出荷時】"));
+  const sourceFullBoxes = toNumber(getValue("箱整数【出荷時】"));
+  const sourcePartialBoxes = toNumber(getValue("箱端数【出荷時】"));
+  const sourceTotalBoxes = sourceFullBoxes + sourcePartialBoxes;
+
+  const totalBoxes =
+    sourceTotalBoxes > 0
+      ? sourceTotalBoxes
+      : shippingCapacity > 0
+      ? Math.ceil(quantity / shippingCapacity)
+      : 0;
+
+  let fullBoxes = sourceFullBoxes;
+  let partialBoxes = sourcePartialBoxes;
+  let boxJudgement = "従来判定";
+
+  if (ownerCapacity > 0 && shippingCapacity > 0) {
+    if (shippingCapacity < ownerCapacity) {
+      fullBoxes = 0;
+      partialBoxes = totalBoxes;
+      boxJudgement = "端数";
+    } else {
+      fullBoxes = totalBoxes;
+      partialBoxes = 0;
+      boxJudgement = "整数";
+    }
+  }
 
   const sourceShippingDataId = cleanValue(
     getValue("出荷データID")
@@ -1901,11 +2270,14 @@ function convertRowToShippingData(row, headers, rowIndex) {
     ),
     shippingDate: formatExcelDate(getValue("出荷日")),
     lane: cleanValue(getValue("レーン")),
+    boxType: cleanValue(getValue("箱種")),
     inspectionNumber: cleanValue(getValue("検収番号")),
-    capacity: toNumber(getValue("収容数【出荷時】")),
+    ownerCapacity,
+    capacity: shippingCapacity,
     fullBoxes,
     partialBoxes,
-    totalBoxes: fullBoxes + partialBoxes,
+    totalBoxes,
+    boxJudgement,
     orderCategory: cleanValue(getValue("受注区分表示")),
     supplierPartNumber: cleanValue(getValue("業者品番")),
     status: STATUS.PENDING,
@@ -1940,6 +2312,86 @@ function toNumber(value) {
   const parsedValue = Number(normalizedValue);
 
   return Number.isFinite(parsedValue) ? parsedValue : 0;
+}
+
+function compareBySortRule(
+  a,
+  b,
+  rule,
+  boxTypeOrder
+) {
+  const { field, direction } = rule;
+
+  if (field === "boxType" && direction === "custom") {
+    const aIndex = boxTypeOrder.indexOf(a.boxType);
+    const bIndex = boxTypeOrder.indexOf(b.boxType);
+
+    const normalizedA =
+      aIndex === -1
+        ? Number.MAX_SAFE_INTEGER
+        : aIndex;
+
+    const normalizedB =
+      bIndex === -1
+        ? Number.MAX_SAFE_INTEGER
+        : bIndex;
+
+    return normalizedA - normalizedB;
+  }
+
+  if (
+    field === "totalBoxes" ||
+    field === "importOrder"
+  ) {
+    const aValue = toNumber(a[field]);
+    const bValue = toNumber(b[field]);
+
+    return direction === "desc"
+      ? bValue - aValue
+      : aValue - bValue;
+  }
+
+  const aValue = String(a[field] ?? "");
+  const bValue = String(b[field] ?? "");
+
+  const compared = aValue.localeCompare(
+    bValue,
+    "ja",
+    { numeric: true }
+  );
+
+  return direction === "desc"
+    ? -compared
+    : compared;
+}
+
+function getPartialQuantityPerBox(item) {
+  const partialBoxes = toNumber(item.partialBoxes);
+  const shippingCapacity = toNumber(item.capacity);
+  const fullBoxes = toNumber(item.fullBoxes);
+  const quantity = toNumber(item.quantity);
+
+  if (partialBoxes <= 0) {
+    return 0;
+  }
+
+  if (
+    item.boxJudgement === "端数" &&
+    shippingCapacity > 0
+  ) {
+    return shippingCapacity;
+  }
+
+  const remainingQuantity =
+    quantity - shippingCapacity * fullBoxes;
+
+  if (remainingQuantity > 0) {
+    return Math.floor(
+      remainingQuantity / partialBoxes
+    );
+  }
+
+  return shippingCapacity;
 }
 
 function normalizeText(value) {
