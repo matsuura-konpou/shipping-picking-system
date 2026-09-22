@@ -33,12 +33,18 @@ const STATUS = {
   HOLD: "保留",
 };
 
+const PICKING_MODE = {
+  DETAIL: "detail",
+  AGGREGATE: "aggregate",
+};
+
 function App() {
   const [shippingData, setShippingData] = useState([]);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
   const [activeTab, setActiveTab] = useState("import");
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [pickingMode, setPickingMode] = useState(PICKING_MODE.DETAIL);
 
   const [statusFilter, setStatusFilter] = useState("すべて");
   const [searchText, setSearchText] = useState("");
@@ -455,20 +461,44 @@ function App() {
     );
   }, [workTargetData]);
 
+  const aggregateWorkData = useMemo(() => {
+    return createPartAggregates(workTargetData, boxTypeOrder);
+  }, [workTargetData, boxTypeOrder]);
+
+  const aggregatePickingData = useMemo(() => {
+    return createPartAggregates(pickingData, boxTypeOrder);
+  }, [pickingData, boxTypeOrder]);
+
+  const activePickingCount =
+    pickingMode === PICKING_MODE.AGGREGATE
+      ? aggregatePickingData.length
+      : pickingData.length;
+
   useEffect(() => {
-    if (pickingData.length === 0) {
+    if (activePickingCount === 0) {
       setCurrentIndex(0);
       return;
     }
 
-    if (currentIndex >= pickingData.length) {
-      setCurrentIndex(pickingData.length - 1);
+    if (currentIndex >= activePickingCount) {
+      setCurrentIndex(activePickingCount - 1);
     }
-  }, [pickingData.length, currentIndex]);
+  }, [activePickingCount, currentIndex]);
 
-  const currentItem = pickingData[currentIndex] ?? null;
+  const currentItem =
+    pickingMode === PICKING_MODE.DETAIL
+      ? pickingData[currentIndex] ?? null
+      : null;
+
+  const currentAggregate =
+    pickingMode === PICKING_MODE.AGGREGATE
+      ? aggregatePickingData[currentIndex] ?? null
+      : null;
 
   const selectedWorkCount = selectedWorkData.length;
+  const selectedWorkPartCount = new Set(
+    selectedWorkData.map((item) => item.partNumber).filter(Boolean)
+  ).size;
   const selectedWorkBoxes = selectedWorkData.reduce(
     (total, item) => total + toNumber(item.totalBoxes),
     0
@@ -483,6 +513,14 @@ function App() {
     (item) => item.status === STATUS.COMPLETED
   ).length;
   const workRemainingCount = workTotalCount - workCompletedCount;
+
+  const workTotalPartCount = aggregateWorkData.length;
+  const workCompletedPartCount = aggregateWorkData.filter((group) =>
+    group.items.every((item) => item.status === STATUS.COMPLETED)
+  ).length;
+  const workRemainingPartCount =
+    workTotalPartCount - workCompletedPartCount;
+
   const workTotalBoxes = workTargetData.reduce(
     (total, item) => total + toNumber(item.totalBoxes),
     0
@@ -692,6 +730,156 @@ function App() {
     );
   };
 
+  const updateStatusesByIds = (
+    shippingDataIds,
+    newStatus,
+    holdReason = ""
+  ) => {
+    const targetIdSet = new Set(
+      shippingDataIds.map((id) => String(id))
+    );
+
+    setShippingData((previousData) =>
+      previousData.map((item) => {
+        if (!targetIdSet.has(String(item.shippingDataId))) {
+          return item;
+        }
+
+        return {
+          ...item,
+          status: newStatus,
+          completedAt:
+            newStatus === STATUS.COMPLETED
+              ? new Date().toISOString()
+              : "",
+          holdAt:
+            newStatus === STATUS.HOLD
+              ? new Date().toISOString()
+              : "",
+          holdReason:
+            newStatus === STATUS.HOLD ? holdReason : "",
+          isExported: false,
+          exportedAt: "",
+        };
+      })
+    );
+  };
+
+  const askHoldReason = () => {
+    const input = window.prompt(
+      [
+        "保留理由を番号で入力してください。",
+        "",
+        "1：在庫不足",
+        "2：現品なし",
+        "3：品番確認",
+        "4：数量確認",
+        "5：納入先確認",
+        "6：その他",
+      ].join("\n")
+    );
+
+    if (input === null) {
+      return null;
+    }
+
+    const reasonMap = {
+      1: "在庫不足",
+      2: "現品なし",
+      3: "品番確認",
+      4: "数量確認",
+      5: "納入先確認",
+      6: "その他",
+    };
+
+    const selectedReason = reasonMap[String(input).trim()];
+
+    if (!selectedReason) {
+      window.alert("1～6の番号を入力してください。");
+      return null;
+    }
+
+    if (selectedReason !== "その他") {
+      return selectedReason;
+    }
+
+    const customReason = window.prompt("保留理由を入力してください。");
+
+    if (customReason === null) {
+      return null;
+    }
+
+    if (customReason.trim() === "") {
+      window.alert("保留理由を入力してください。");
+      return null;
+    }
+
+    return customReason.trim();
+  };
+
+  const completeCurrentAggregate = () => {
+    if (!currentAggregate) {
+      return;
+    }
+
+    const firstApproved = window.confirm(
+      [
+        `品番：${currentAggregate.partNumber || "-"}`,
+        `合計数量：${currentAggregate.quantity.toLocaleString()}個`,
+        `合計箱数：${currentAggregate.totalBoxes.toLocaleString()}箱`,
+        `整数箱：${currentAggregate.fullBoxes.toLocaleString()}箱`,
+        `端数箱：${currentAggregate.partialBoxes.toLocaleString()}箱`,
+        `対象明細：${currentAggregate.detailCount.toLocaleString()}件`,
+        "",
+        "この品番のトータルピッキングを完了しますか？",
+      ].join("\n")
+    );
+
+    if (!firstApproved) {
+      return;
+    }
+
+    const secondApproved = window.confirm(
+      [
+        `${currentAggregate.detailCount.toLocaleString()}件の明細を`,
+        "まとめて完了状態にします。",
+        "",
+        "内訳を確認済みですか？",
+      ].join("\n")
+    );
+
+    if (!secondApproved) {
+      return;
+    }
+
+    updateStatusesByIds(
+      currentAggregate.items.map((item) => item.shippingDataId),
+      STATUS.COMPLETED
+    );
+  };
+
+  const holdCurrentAggregate = () => {
+    if (!currentAggregate) {
+      return;
+    }
+
+    const holdReason = askHoldReason();
+
+    if (!holdReason) {
+      return;
+    }
+
+    updateStatusesByIds(
+      currentAggregate.items.map((item) => item.shippingDataId),
+      STATUS.HOLD,
+      holdReason
+    );
+
+    if (currentIndex < aggregatePickingData.length - 1) {
+      setCurrentIndex((previousIndex) => previousIndex + 1);
+    }
+  };
+
   const completeCurrentItem = () => {
     if (!currentItem) {
       return;
@@ -825,7 +1013,7 @@ function App() {
 
   const moveNext = () => {
     setCurrentIndex((previousIndex) =>
-      Math.min(previousIndex + 1, pickingData.length - 1)
+      Math.min(previousIndex + 1, activePickingCount - 1)
     );
   };
 
@@ -1368,6 +1556,24 @@ function App() {
                   </label>
 
                   <label>
+                    <span>作業モード</span>
+                    <select
+                      value={pickingMode}
+                      onChange={(event) => {
+                        setPickingMode(event.target.value);
+                        setCurrentIndex(0);
+                      }}
+                    >
+                      <option value={PICKING_MODE.DETAIL}>
+                        明細ピッキング
+                      </option>
+                      <option value={PICKING_MODE.AGGREGATE}>
+                        品番集計ピッキング
+                      </option>
+                    </select>
+                  </label>
+
+                  <label>
                     <span>作業状態</span>
                     <select
                       value={workStatus}
@@ -1388,6 +1594,14 @@ function App() {
                     <strong>
                       {selectedWorkCount.toLocaleString()}
                       <small>件</small>
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>対象品番</span>
+                    <strong>
+                      {selectedWorkPartCount.toLocaleString()}
+                      <small>品番</small>
                     </strong>
                   </div>
 
@@ -1418,6 +1632,12 @@ function App() {
                     <span>ロケ：{workLane}</span>
                     <span>箱種：{workBoxType}</span>
                     <span>箱区分：{workBoxJudgement}</span>
+                    <span>
+                      作業モード：
+                      {pickingMode === PICKING_MODE.AGGREGATE
+                        ? "品番集計ピッキング"
+                        : "明細ピッキング"}
+                    </span>
                     <span>状態：{workStatus}</span>
                   </div>
                 </div>
@@ -1481,6 +1701,13 @@ function App() {
                     {workRemainingCount.toLocaleString()}件
                   </strong>
                 </div>
+
+                <div>
+                  <span>残り品番</span>
+                  <strong>
+                    {workRemainingPartCount.toLocaleString()}品番
+                  </strong>
+                </div>
               </div>
             )}
 
@@ -1492,6 +1719,24 @@ function App() {
               >
                 作業条件を変更
               </button>
+
+              <label>
+                作業モード
+                <select
+                  value={pickingMode}
+                  onChange={(event) => {
+                    setPickingMode(event.target.value);
+                    setCurrentIndex(0);
+                  }}
+                >
+                  <option value={PICKING_MODE.DETAIL}>
+                    明細ピッキング
+                  </option>
+                  <option value={PICKING_MODE.AGGREGATE}>
+                    品番集計ピッキング
+                  </option>
+                </select>
+              </label>
             </div>
 
             <SortSettings
@@ -1517,7 +1762,7 @@ function App() {
                   作業対象を選択
                 </button>
               </div>
-            ) : !currentItem ? (
+            ) : activePickingCount === 0 ? (
               <div className="empty-card">
                 <h2>選択した作業はすべて完了しました</h2>
                 <p>
@@ -1531,6 +1776,261 @@ function App() {
                 >
                   作業条件を変更
                 </button>
+              </div>
+            ) : pickingMode === PICKING_MODE.AGGREGATE ? (
+              <div className="picking-card">
+                <div className="picking-position">
+                  品番集計 {currentIndex + 1}／
+                  {aggregatePickingData.length}品番
+                </div>
+
+                <div className="primary-information">
+                  <div className="lane-box">
+                    <span>対象ロケ</span>
+                    <strong>
+                      {currentAggregate?.lanes.join("・") || "未設定"}
+                    </strong>
+                    <small>
+                      箱種：
+                      {currentAggregate?.boxTypes.join("・") || "未設定"}
+                    </small>
+                  </div>
+
+                  <div className="part-number-box">
+                    <span>品番</span>
+                    <strong>
+                      {currentAggregate?.partNumber || "-"}
+                    </strong>
+                  </div>
+                </div>
+
+                <div className="quantity-grid">
+                  <div>
+                    <span>合計箱数</span>
+
+                    <strong>
+                      {toNumber(
+                        currentAggregate?.totalBoxes
+                      ).toLocaleString()}
+                      <small>箱</small>
+                    </strong>
+
+                    <div className="box-breakdown">
+                      <div className="full-box-display">
+                        <span>整数箱</span>
+                        <strong>
+                          {toNumber(
+                            currentAggregate?.fullBoxes
+                          ).toLocaleString()}
+                          箱
+                        </strong>
+                      </div>
+
+                      <div
+                        className={
+                          toNumber(currentAggregate?.partialBoxes) > 0
+                            ? "partial-box-display has-partial"
+                            : "partial-box-display"
+                        }
+                      >
+                        <span>端数箱</span>
+                        <strong>
+                          {toNumber(
+                            currentAggregate?.partialBoxes
+                          ).toLocaleString()}
+                          箱
+                        </strong>
+                      </div>
+                    </div>
+
+                    {currentAggregate?.partialBreakdowns.length > 0 && (
+                      <div className="capacity-breakdown">
+                        {currentAggregate.partialBreakdowns.map(
+                          (breakdown) => (
+                            <div
+                              className="partial-quantity-row"
+                              key={breakdown.key}
+                            >
+                              <span>
+                                {breakdown.boxType || "箱種未設定"}
+                              </span>
+                              <strong>
+                                {breakdown.quantityPerBox.toLocaleString()}
+                                個 ×{" "}
+                                {breakdown.boxes.toLocaleString()}
+                                箱
+                              </strong>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <span>合計数量</span>
+
+                    <strong>
+                      {toNumber(
+                        currentAggregate?.quantity
+                      ).toLocaleString()}
+                      <small>個</small>
+                    </strong>
+
+                    <p>
+                      対象明細{" "}
+                      <strong>
+                        {toNumber(
+                          currentAggregate?.detailCount
+                        ).toLocaleString()}
+                        件
+                      </strong>
+                    </p>
+
+                    <p>
+                      納入先{" "}
+                      <strong>
+                        {toNumber(
+                          currentAggregate?.destinationCount
+                        ).toLocaleString()}
+                        か所
+                      </strong>
+                    </p>
+
+                    <p>
+                      端数内訳{" "}
+                      <strong>
+                        {toNumber(
+                          currentAggregate?.partialBreakdowns.length
+                        ).toLocaleString()}
+                        種類
+                      </strong>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="detail-grid">
+                  <DetailItem
+                    label="対象ロケ"
+                    value={currentAggregate?.lanes.join("・")}
+                    wide
+                  />
+
+                  <DetailItem
+                    label="箱種"
+                    value={currentAggregate?.boxTypes.join("・")}
+                  />
+
+                  <DetailItem
+                    label="納入先数"
+                    value={`${toNumber(
+                      currentAggregate?.destinationCount
+                    ).toLocaleString()}か所`}
+                  />
+
+                  <DetailItem
+                    label="対象明細"
+                    value={`${toNumber(
+                      currentAggregate?.detailCount
+                    ).toLocaleString()}件`}
+                  />
+                </div>
+
+                <details className="sort-settings-panel">
+                  <summary>
+                    明細内訳を確認（
+                    {toNumber(
+                      currentAggregate?.detailCount
+                    ).toLocaleString()}
+                    件）
+                  </summary>
+
+                  <div className="table-wrapper">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>納入先</th>
+                          <th>ロケ</th>
+                          <th>箱種</th>
+                          <th>数量</th>
+                          <th>箱数</th>
+                          <th>注文No.</th>
+                          <th>検収番号</th>
+                          <th>状態</th>
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {currentAggregate?.items.map((item) => (
+                          <tr key={item.shippingDataId}>
+                            <td>{item.destinationName || "-"}</td>
+                            <td className="large-table-text">
+                              {item.lane || "-"}
+                            </td>
+                            <td>{item.boxType || "-"}</td>
+                            <td>
+                              {toNumber(
+                                item.quantity
+                              ).toLocaleString()}
+                              個
+                            </td>
+                            <td>
+                              {toNumber(
+                                item.totalBoxes
+                              ).toLocaleString()}
+                              箱
+                            </td>
+                            <td>{item.orderNumber || "-"}</td>
+                            <td>{item.inspectionNumber || "-"}</td>
+                            <td>
+                              <span
+                                className={`status-badge ${statusClassName(
+                                  item.status
+                                )}`}
+                              >
+                                {item.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </details>
+
+                <div className="picking-actions">
+                  <button
+                    className="navigation-button"
+                    onClick={movePrevious}
+                    disabled={currentIndex === 0}
+                  >
+                    前へ
+                  </button>
+
+                  <button
+                    className="hold-button"
+                    onClick={holdCurrentAggregate}
+                  >
+                    品番を保留
+                  </button>
+
+                  <button
+                    className="complete-button"
+                    onClick={completeCurrentAggregate}
+                  >
+                    トータルピッキング完了
+                  </button>
+
+                  <button
+                    className="navigation-button"
+                    onClick={moveNext}
+                    disabled={
+                      currentIndex >= aggregatePickingData.length - 1
+                    }
+                  >
+                    次へ
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="picking-card">
@@ -1743,6 +2243,7 @@ function App() {
                 </div>
               </div>
             )}
+
           </section>
         )}
 
@@ -2312,6 +2813,116 @@ function toNumber(value) {
   const parsedValue = Number(normalizedValue);
 
   return Number.isFinite(parsedValue) ? parsedValue : 0;
+}
+
+function createPartAggregates(items, boxTypeOrder = []) {
+  const groupMap = new Map();
+
+  items.forEach((item) => {
+    const partNumber = item.partNumber || "品番未設定";
+
+    if (!groupMap.has(partNumber)) {
+      groupMap.set(partNumber, {
+        partNumber,
+        items: [],
+        quantity: 0,
+        totalBoxes: 0,
+        fullBoxes: 0,
+        partialBoxes: 0,
+        lanes: [],
+        boxTypes: [],
+        destinations: [],
+        detailCount: 0,
+        destinationCount: 0,
+        partialBreakdowns: [],
+      });
+    }
+
+    const group = groupMap.get(partNumber);
+
+    group.items.push(item);
+    group.quantity += toNumber(item.quantity);
+    group.totalBoxes += toNumber(item.totalBoxes);
+    group.fullBoxes += toNumber(item.fullBoxes);
+    group.partialBoxes += toNumber(item.partialBoxes);
+  });
+
+  return [...groupMap.values()].map((group) => {
+    group.detailCount = group.items.length;
+
+    group.lanes = createUniqueOptions(
+      group.items.map((item) => item.lane)
+    );
+
+    group.destinations = createUniqueOptions(
+      group.items.map((item) => item.destinationName)
+    );
+    group.destinationCount = group.destinations.length;
+
+    const detectedBoxTypes = createUniqueOptions(
+      group.items.map((item) => item.boxType)
+    );
+
+    group.boxTypes = [
+      ...boxTypeOrder.filter((boxType) =>
+        detectedBoxTypes.includes(boxType)
+      ),
+      ...detectedBoxTypes.filter(
+        (boxType) => !boxTypeOrder.includes(boxType)
+      ),
+    ];
+
+    const partialMap = new Map();
+
+    group.items.forEach((item) => {
+      const partialBoxes = toNumber(item.partialBoxes);
+
+      if (partialBoxes <= 0) {
+        return;
+      }
+
+      const quantityPerBox = getPartialQuantityPerBox(item);
+      const boxType = item.boxType || "箱種未設定";
+      const key = `${boxType}__${quantityPerBox}`;
+
+      if (!partialMap.has(key)) {
+        partialMap.set(key, {
+          key,
+          boxType,
+          quantityPerBox,
+          boxes: 0,
+        });
+      }
+
+      partialMap.get(key).boxes += partialBoxes;
+    });
+
+    group.partialBreakdowns = [...partialMap.values()].sort((a, b) => {
+      const aIndex = boxTypeOrder.indexOf(a.boxType);
+      const bIndex = boxTypeOrder.indexOf(b.boxType);
+
+      const normalizedA =
+        aIndex === -1 ? Number.MAX_SAFE_INTEGER : aIndex;
+      const normalizedB =
+        bIndex === -1 ? Number.MAX_SAFE_INTEGER : bIndex;
+
+      if (normalizedA !== normalizedB) {
+        return normalizedA - normalizedB;
+      }
+
+      if (a.boxType !== b.boxType) {
+        return String(a.boxType).localeCompare(
+          String(b.boxType),
+          "ja",
+          { numeric: true }
+        );
+      }
+
+      return b.quantityPerBox - a.quantityPerBox;
+    });
+
+    return group;
+  });
 }
 
 function compareBySortRule(
